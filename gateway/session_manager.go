@@ -117,6 +117,14 @@ func (l *SessionLimiter) limitRedis(currentSession *user.SessionState, key strin
 	rateLimiterKey := RateLimitKeyPrefix + rateScope + currentSession.GetKeyHash()
 	rateLimiterSentinelKey := RateLimitKeyPrefix + rateScope + currentSession.GetKeyHash() + ".BLOCKED"
 
+	md := currentSession.GetMetaData()
+	if md != nil {
+		if _, ok := md[keyDataDeveloperID]; ok {
+			rateLimiterKey = RateLimitKeyPrefix + rateScope + md[keyDataDeveloperID].(string)
+			rateLimiterSentinelKey = RateLimitKeyPrefix + rateScope + md[keyDataDeveloperID].(string) + ".BLOCKED"
+		}
+	}
+
 	if l.doRollingWindowWrite(key, rateLimiterKey, rateLimiterSentinelKey, currentSession, store, globalConf, apiLimit, dryRun) {
 		return true
 	}
@@ -134,6 +142,13 @@ func (l *SessionLimiter) limitDRL(currentSession *user.SessionState, key string,
 	bucketKey := key + ":" + rateScope + currentSession.LastUpdated
 	currRate := apiLimit.Rate
 	per := apiLimit.Per
+
+	md := currentSession.GetMetaData()
+	if md != nil {
+		if _, ok := md[keyDataDeveloperID]; ok {
+			bucketKey = md[keyDataDeveloperID].(string) + ":" + rateScope + currentSession.LastUpdated
+		}
+	}
 
 	// DRL will always overflow with more servers on low rates
 	rate := uint(currRate * float64(DRLManager.RequestTokenValue))
@@ -270,6 +285,12 @@ func (l *SessionLimiter) RedisQuotaExceeded(r *http.Request, currentSession *use
 	}
 
 	rawKey := QuotaKeyPrefix + quotaScope + currentSession.GetKeyHash()
+	md := currentSession.GetMetaData()
+	if md != nil {
+		if _, ok := md[keyDataDeveloperID]; ok {
+			rawKey = QuotaKeyPrefix + quotaScope + md[keyDataDeveloperID].(string)
+		}
+	}
 	quotaRenewalRate := limit.QuotaRenewalRate
 	quotaRenews := limit.QuotaRenews
 	quotaMax := limit.QuotaMax
